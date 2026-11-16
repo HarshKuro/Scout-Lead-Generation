@@ -1,4 +1,6 @@
 import re
+import html
+import base64
 import urllib.parse
 import logging
 from typing import List, Dict, Any, Optional
@@ -12,12 +14,13 @@ logger = logging.getLogger(__name__)
 class LeadDiscoveryEngine:
     """
     Search & OSINT Discovery Engine for Scout.
-    Executes search dorks (e.g. Google/DuckDuckGo X-Ray search) to discover target decision makers
-    across LinkedIn, Instagram, GitHub, and websites without requiring paid search APIs.
+    Executes search dorks (e.g. Google/Bing/GitHub API) to discover target decision makers
+    across LinkedIn, GitHub, Instagram, and websites.
     """
 
     DUCKDUCKGO_HTML_URL = "https://html.duckduckgo.com/html/"
     BING_URL = "https://www.bing.com/search"
+    GITHUB_API_SEARCH = "https://api.github.com/search/users"
 
     PLATFORM_PATTERNS = {
         "linkedin": r"linkedin\.com/in/([a-zA-Z0-9_\-\.]+)",
@@ -28,10 +31,15 @@ class LeadDiscoveryEngine:
 
     IGNORE_SLUGS = {
         "instagram": ["p", "stories", "explore", "reels", "about", "developer", "legal", "terms"],
-        "github": ["features", "topics", "collections", "pricing", "security", "about", "orgs", "explore", "trending"],
-        "linkedin": ["posts", "pulse", "company", "school", "jobs", "feed", "learning"],
+        "github": ["features", "topics", "collections", "pricing", "security", "about", "orgs", "explore", "trending", "search"],
+        "linkedin": ["posts", "pulse", "company", "school", "jobs", "feed", "learning", "in"],
         "twitter": ["home", "explore", "notifications", "messages", "settings", "search"],
     }
+
+    BLACKLIST_DOMAINS = [
+        "merriam-webster.com", "dictionary.cambridge.org", "collinsdictionary.com",
+        "wikipedia.org", "imdb.com", "wiktionary.org", "thefreedictionary.com"
+    ]
 
     def search_dork(self, query: str, max_results: int = 25) -> List[Dict[str, Any]]:
         """
@@ -40,13 +48,18 @@ class LeadDiscoveryEngine:
         results = []
         platform = self.detect_query_platform(query)
 
-        # 1. Try DuckDuckGo HTML
-        results = self._search_duckduckgo(query, max_results)
+        # If targeting GitHub profiles, use GitHub Search API directly (most reliable)
+        if platform == "github":
+            results = self._search_github_api(query, max_results)
 
-        # 2. Fallback to Bing if DDG returned empty
+        # If not enough results or other platforms, query Bing / DDG
+        if len(results) < max_results:
+            bing_res = self._search_bing(query, max_results - len(results))
+            results.extend(bing_res)
+
         if not results:
-            logger.info("DuckDuckGo returned no results, attempting Bing fallback...")
-            results = self._search_bing(query, max_results)
+            ddg_res = self._search_duckduckgo(query, max_results)
+            results.extend(ddg_res)
 
         # Extract handles and clean results
         cleaned_leads = []
@@ -54,10 +67,15 @@ class LeadDiscoveryEngine:
 
         for r in results:
             url = r.get("url", "")
-            username = self.extract_username_from_url(url, platform)
+
+            # Filter blacklist domains
+            if any(b in url.lower() for b in self.BLACKLIST_DOMAINS):
+                continue
+
+            username = r.get("username") or self.extract_username_from_url(url, platform)
 
             if username:
-                if username.lower() not in seen_usernames:
+                if username.lower() not in seen_usernames and username.lower() not in self.IGNORE_SLUGS.get(platform, []):
                     seen_usernames.add(username.lower())
                     cleaned_leads.append({
                         "username": username,
@@ -66,11 +84,10 @@ class LeadDiscoveryEngine:
                         "url": url,
                         "snippet": r.get("snippet", ""),
                     })
-            else:
-                # General result (e.g. company domain)
+            elif platform == "general":
                 cleaned_leads.append({
                     "username": "",
-                    "platform": platform or "web",
+                    "platform": "web",
                     "title": r.get("title", ""),
                     "url": url,
                     "snippet": r.get("snippet", ""),
@@ -94,8 +111,11 @@ class LeadDiscoveryEngine:
         if not url:
             return None
 
-        # Clean redirects (e.g. DuckDuckGo /uddg?uddg=... or Bing)
-        if "duckduckgo.com/l/?uddg=" in url:
+        # Decode Bing redirect URL if present
+        url = self._decode_bing_url(url)
+
+        # Clean redirects (e.g. DuckDuckGo /uddg?uddg=...)
+        if "duckduckgo.com/l/?uddg=" in url or "/uddg=" in url:
             parsed = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
             if "uddg" in parsed and parsed["uddg"]:
                 url = parsed["uddg"][0]
@@ -114,67 +134,67 @@ class LeadDiscoveryEngine:
 
         return None
 
-    def _search_duckduckgo(self, query: str, max_results: int) -> List[Dict[str, str]]:
+    def _decode_bing_url(self, bing_url: str) -> str:
+        clean = html.unescape(bing_url).replace('&amp;', '&')
+        if "/ck/a?" in clean:
+            parsed = urllib.parse.parse_qs(urllib.parse.urlparse(clean).query)
+            u_val = parsed.get("u", [None])[0]
+            if u_val:
+                raw_b64 = u_val[2:] if u_val.startswith("a1") else u_val
+                pad = len(raw_b64) % 4
+                if pad:
+                    raw_b64 += "=" * (4 - pad)
+                try:
+                    decoded = base64.b64decode(raw_b64).decode("utf-8", errors="ignore")
+                    return decoded
+                except Exception:
+                    pass
+        return clean
+
+    def _search_github_api(self, query: str, max_results: int) -> List[Dict[str, Any]]:
         leads = []
         try:
+            # Extract keywords from dork like site:github.com "founder" "Bengaluru"
+            clean_q = query.replace('site:github.com', '').strip()
+            # Parse location if present
+            location = ""
+            for loc in ["Bengaluru", "Bangalore", "Mumbai", "Delhi", "Gurgaon", "Noida", "Hyderabad",
+                        "Pune", "Lahore", "Karachi", "Islamabad", "San Francisco", "New York", "London", "Dubai"]:
+                if loc.lower() in clean_q.lower():
+                    location = loc
+                    break
+
+            terms = [w.strip(' "\'') for w in clean_q.split() if w.strip(' "\'') and w.lower() != location.lower()]
+            search_param = " ".join(terms)
+            if location:
+                search_param += f' location:"{location}"'
+
             headers = {
                 "User-Agent": random_user_agent(),
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
+                "Accept": "application/vnd.github.v3+json"
             }
-            resp = httpx.post(
-                self.DUCKDUCKGO_HTML_URL,
-                data={"q": query},
+
+            resp = httpx.get(
+                self.GITHUB_API_SEARCH,
+                params={"q": search_param, "per_page": min(max_results, 30)},
                 headers=headers,
-                timeout=12,
-                follow_redirects=True
+                timeout=12
             )
 
             if resp.status_code == 200:
-                html = resp.text
-
-                # Parse organic result links
-                # DDG HTML results typically have <a class="result__url" href="..."> or <a class="result__snippet" ...>
-                # and <h2 class="result__title"><a class="result__a" href="...">
-                results = re.findall(
-                    r'<a[^>]+class=[\'"][^\'"]*result__a[^\'"]*[\'"][^>]+href=[\'"]([^\'"]+)[\'"][^>]*>(.*?)</a>',
-                    html,
-                    re.DOTALL | re.IGNORECASE
-                )
-
-                snippets = re.findall(
-                    r'<a[^>]+class=[\'"][^\'"]*result__snippet[^\'"]*[\'"][^>]*>(.*?)</a>',
-                    html,
-                    re.DOTALL | re.IGNORECASE
-                )
-
-                for idx, (raw_url, raw_title) in enumerate(results):
-                    # Unescape HTML entities
-                    title = re.sub(r'<[^>]+>', '', raw_title).strip()
-                    title = title.replace('&amp;', '&').replace('&quot;', '"').replace('&#x27;', "'")
-
-                    # Extract actual target URL from DDG redirect if present
-                    actual_url = raw_url
-                    if "/l/?uddg=" in raw_url:
-                        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(raw_url).query)
-                        if "uddg" in parsed and parsed["uddg"]:
-                            actual_url = parsed["uddg"][0]
-
-                    snippet_text = ""
-                    if idx < len(snippets):
-                        snippet_text = re.sub(r'<[^>]+>', '', snippets[idx]).strip()
-
+                items = resp.json().get("items", [])
+                for item in items:
                     leads.append({
-                        "title": title,
-                        "url": actual_url,
-                        "snippet": snippet_text
+                        "username": item.get("login"),
+                        "platform": "github",
+                        "title": f"{item.get('login')} (GitHub User)",
+                        "url": item.get("html_url"),
+                        "snippet": ""
                     })
-
                     if len(leads) >= max_results:
                         break
-
         except Exception as e:
-            logger.debug(f"DuckDuckGo search error: {e}")
+            logger.debug(f"GitHub search error: {e}")
 
         return leads
 
@@ -194,20 +214,26 @@ class LeadDiscoveryEngine:
             )
 
             if resp.status_code == 200:
-                html = resp.text
+                page_html = resp.text
 
-                # Match <li class="b_algo"> ... <h2><a href="URL">TITLE</a></h2> ... <p>SNIPPET</p>
+                # Match <h2><a href="URL">TITLE</a></h2>
                 blocks = re.findall(
-                    r'<h2><a[^>]+href=[\'"]([^\'"]+)[\'"][^>]*>(.*?)</a></h2>',
-                    html,
+                    r'<h2>\s*<a[^>]+href=[\'"]([^\'"]+)[\'"][^>]*>(.*?)</a>',
+                    page_html,
                     re.DOTALL | re.IGNORECASE
                 )
 
                 for raw_url, raw_title in blocks:
+                    decoded = self._decode_bing_url(raw_url)
+                    if any(b in decoded.lower() for b in self.BLACKLIST_DOMAINS):
+                        continue
+
                     title = re.sub(r'<[^>]+>', '', raw_title).strip()
+                    title = html.unescape(title)
+
                     leads.append({
                         "title": title,
-                        "url": raw_url,
+                        "url": decoded,
                         "snippet": ""
                     })
                     if len(leads) >= max_results:
@@ -217,11 +243,56 @@ class LeadDiscoveryEngine:
 
         return leads
 
+    def _search_duckduckgo(self, query: str, max_results: int) -> List[Dict[str, str]]:
+        leads = []
+        try:
+            headers = {
+                "User-Agent": random_user_agent(),
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+            resp = httpx.post(
+                self.DUCKDUCKGO_HTML_URL,
+                data={"q": query},
+                headers=headers,
+                timeout=12,
+                follow_redirects=True
+            )
+
+            if resp.status_code == 200:
+                results = re.findall(
+                    r'<a[^>]+class=[\'"][^\'"]*result__a[^\'"]*[\'"][^>]+href=[\'"]([^\'"]+)[\'"][^>]*>(.*?)</a>',
+                    resp.text,
+                    re.DOTALL | re.IGNORECASE
+                )
+
+                for raw_url, raw_title in results:
+                    actual_url = raw_url
+                    if "/l/?uddg=" in raw_url:
+                        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(raw_url).query)
+                        if "uddg" in parsed and parsed["uddg"]:
+                            actual_url = parsed["uddg"][0]
+
+                    if any(b in actual_url.lower() for b in self.BLACKLIST_DOMAINS):
+                        continue
+
+                    title = re.sub(r'<[^>]+>', '', raw_title).strip()
+                    title = html.unescape(title)
+
+                    leads.append({
+                        "title": title,
+                        "url": actual_url,
+                        "snippet": ""
+                    })
+
+                    if len(leads) >= max_results:
+                        break
+        except Exception as e:
+            logger.debug(f"DuckDuckGo search error: {e}")
+
+        return leads
+
     @classmethod
     def build_dork(cls, platform: str, role: str, industry: str, location: str) -> str:
-        """
-        Helper method to construct a Google/DuckDuckGo X-Ray dork query.
-        """
         site_map = {
             "linkedin": "site:linkedin.com/in",
             "instagram": "site:instagram.com",
@@ -233,7 +304,6 @@ class LeadDiscoveryEngine:
         parts = [site_part]
 
         if role:
-            # Handle comma separated or single
             roles = [r.strip() for r in role.split(",") if r.strip()]
             if len(roles) > 1:
                 parts.append("(" + " OR ".join([f'"{r}"' for r in roles]) + ")")

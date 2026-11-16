@@ -338,6 +338,9 @@ class LeadEnricher:
         domain = parts[1]
         result = {'exists': False, 'accept_all': False, 'score': 0}
 
+        if getattr(self, '_port25_blocked', False):
+            return result
+
         try:
             mx_records = dns.resolver.resolve(domain, 'MX')
             mx_host = str(sorted(mx_records, key=lambda x: x.preference)[0].exchange).rstrip('.')
@@ -347,7 +350,7 @@ class LeadEnricher:
         result['score'] += 10
 
         try:
-            with smtplib.SMTP(timeout=10) as smtp:
+            with smtplib.SMTP(timeout=2) as smtp:
                 smtp.connect(mx_host, 25)
                 smtp.helo('scout-verify.local')
                 smtp.mail('verify@scout-verify.local')
@@ -363,8 +366,12 @@ class LeadEnricher:
                     result['accept_all'] = True
                     result['score'] = max(result['score'] - 40, 30)
 
+        except (socket.timeout, TimeoutError):
+            # Port 25 is blocked by ISP/firewall on this network; disable further SMTP attempts to avoid delays
+            self._port25_blocked = True
+            result['score'] += 20
         except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError,
-                socket.timeout, ConnectionRefusedError, OSError) as e:
+                ConnectionRefusedError, OSError) as e:
             logger.debug(f"SMTP verify failed for {email}: {e}")
             result['score'] += 20
 
