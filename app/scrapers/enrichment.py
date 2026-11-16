@@ -32,19 +32,32 @@ class LeadEnricher:
         enriched = lead_data.copy()
         email_candidates = []
 
+        # Check existing email / phone on lead profile (e.g. from vcard or search)
+        if lead_data.get('email') and self._is_valid_email(lead_data['email']):
+            email_candidates.append((lead_data['email'], 'profile'))
+        if lead_data.get('phone') and not enriched.get('phone'):
+            enriched['phone'] = lead_data['phone']
+
+        # Extract contacts from bio
         bio_contacts = self._extract_from_text(lead_data.get('bio', ''))
         if bio_contacts['email']:
             email_candidates.append((bio_contacts['email'], 'bio'))
-        if bio_contacts['phone']:
+        if bio_contacts['phone'] and not enriched.get('phone'):
             enriched['phone'] = bio_contacts['phone']
+
+        # Extract contacts from search snippet if present
+        if lead_data.get('snippet'):
+            snip_contacts = self._extract_from_text(lead_data.get('snippet', ''))
+            if snip_contacts['email']:
+                email_candidates.append((snip_contacts['email'], 'snippet'))
+            if snip_contacts['phone'] and not enriched.get('phone'):
+                enriched['phone'] = snip_contacts['phone']
 
         website = lead_data.get('website', '')
         site_emails = []
 
-        useless_domains = ['youtube.com', 'youtu.be', 'instagram.com', 'tiktok.com',
-                           'twitter.com', 'x.com', 'facebook.com', 'linktr.ee',
-                           'stan.store', 'beacons.ai', 'bit.ly', 'spotify.com']
-        website_is_useful = website and not any(d in website.lower() for d in useless_domains)
+        social_only_domains = ['youtube.com', 'youtu.be', 'twitter.com', 'x.com', 'facebook.com', 'spotify.com']
+        website_is_useful = website and not any(d in website.lower() for d in social_only_domains)
 
         if website_is_useful:
             site_info = self._deep_scrape_website(website)
@@ -178,34 +191,57 @@ class LeadEnricher:
         return True
 
     def _extract_phone_from_text(self, text: str) -> Optional[str]:
-        tel_links = re.findall(r'href=["\']tel:([+\d\s\-().]+)', text)
+        if not text:
+            return None
+
+        # 1. WhatsApp direct links (wa.me/91... or wa.me/92...)
+        wa_links = re.findall(r'(?:wa\.me/|api\.whatsapp\.com/(?:send\?phone=|send/\?phone=))(\+?\d+)', text, re.IGNORECASE)
+        for num in wa_links:
+            clean = re.sub(r'[^\d+]', '', num)
+            if not clean.startswith('+'):
+                clean = '+' + clean
+            if 11 <= len(clean) <= 16:
+                return clean
+
+        # 2. tel: links
+        tel_links = re.findall(r'href=["\']tel:([+\d\s\-().]+)', text, re.IGNORECASE)
         for tel in tel_links:
             clean = re.sub(r'[^\d+]', '', tel)
             if 10 <= len(clean) <= 15:
-                return tel.strip()
+                return clean if clean.startswith('+') else ('+' + clean)
 
-        wa_links = re.findall(r'(?:wa\.me|api\.whatsapp\.com/send\?phone=)(\d+)', text)
-        for num in wa_links:
-            if 10 <= len(num) <= 15:
-                return '+' + num
+        # 3. Labeled contact/phone/WhatsApp strings in text
+        labeled = re.findall(r'(?:whatsapp|call|phone|mobile|mob|contact|ph)[^\w\n]{1,15}(\+?[0-9\s\-().]{8,18})', text, re.IGNORECASE)
+        for raw in labeled:
+            clean = re.sub(r'[^\d+]', '', raw)
+            if 10 <= len(clean) <= 15:
+                return clean if clean.startswith('+') else ('+' + clean)
 
-        visible = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL)
-        visible = re.sub(r'<style[^>]*>.*?</style>', '', visible, flags=re.DOTALL)
-        visible = re.sub(r'<[^>]+>', ' ', visible)
-        visible = re.sub(r'\s+', ' ', visible)
+        # 4. Pakistani mobile numbers (+92 3XX XXXXXXX or 03XX XXXXXXX)
+        pk_matches = re.findall(r'(?:(?:\+|00)92[\s.-]?|0)(3\d{2}[\s.-]?\d{7})', text)
+        for pkm in pk_matches:
+            digits = re.sub(r'[^\d]', '', pkm)
+            if len(digits) == 10:
+                return f'+92{digits}'
 
-        phone_patterns = [
+        # 5. Indian mobile numbers (+91 9XXXX XXXXX, +91-9XXXXXXXXX, or 09XXXXXXXXX)
+        in_matches = re.findall(r'(?:(?:\+|00)91[\s.-]?|0)?([6-9]\d{4}[\s.-]?\d{5})', text)
+        for inm in in_matches:
+            digits = re.sub(r'[^\d]', '', inm)
+            if len(digits) == 10:
+                return f'+91{digits}'
+
+        # 6. International / US phone numbers
+        intl_patterns = [
             r'\+1[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
-            r'\+?\d{1,3}[-.\s]\(?\d{3}\)[-.\s]?\d{3}[-.\s]?\d{4}',
-            r'\(\d{3}\)[-.\s]?\d{3}[-.\s]?\d{4}',
+            r'\+(?:44|971|65|61|49|33)[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}',
         ]
-
-        for pattern in phone_patterns:
-            phones = re.findall(pattern, visible)
+        for pattern in intl_patterns:
+            phones = re.findall(pattern, text)
             for phone in phones:
                 clean = re.sub(r'[^\d+]', '', phone)
-                if 10 <= len(clean) <= 15:
-                    return phone.strip()
+                if 10 <= len(clean) <= 16:
+                    return clean if clean.startswith('+') else ('+' + clean)
 
         return None
 
@@ -219,7 +255,7 @@ class LeadEnricher:
         try:
             if not url.startswith('http'):
                 url = 'https://' + url
-            resp = httpx.get(url, timeout=10, headers={
+            resp = httpx.get(url, timeout=4, headers={
                 'User-Agent': random_user_agent()
             }, follow_redirects=True)
             load_time = _t.time() - start
@@ -248,6 +284,9 @@ class LeadEnricher:
         for idx, url in enumerate(pages_to_check):
             html, headers, load_time = self._fetch_page_with_meta(url)
             if not html:
+                # If homepage failed to load, don't waste time checking subpages on dead host
+                if idx == 0:
+                    break
                 continue
 
             # Run TechSniffer on primary page
@@ -274,7 +313,7 @@ class LeadEnricher:
             if result['email'] and result['phone']:
                 break
 
-            random_delay(0.3, 0.8)
+            random_delay(0.2, 0.4)
 
         result['all_emails'] = list(set(all_emails))
         return result
@@ -584,7 +623,11 @@ class LeadEnricher:
         if lead_data.get('is_verified'):
             score += 10
 
-        followers = lead_data.get('follower_count', 0)
+        followers_raw = lead_data.get('follower_count', 0)
+        try:
+            followers = int(followers_raw)
+        except (ValueError, TypeError):
+            followers = 0
         if 5000 <= followers <= 50000:
             score += 15
         elif 1000 <= followers <= 100000:

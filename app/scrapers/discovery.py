@@ -153,22 +153,20 @@ class LeadDiscoveryEngine:
 
     def _search_github_api(self, query: str, max_results: int) -> List[Dict[str, Any]]:
         leads = []
+        clean_q = query.replace('site:github.com', '').strip()
+        location = ""
+        for loc in ["Bengaluru", "Bangalore", "Mumbai", "Delhi", "Gurgaon", "Noida", "Hyderabad", "Chennai",
+                    "Pune", "Lahore", "Karachi", "Islamabad", "San Francisco", "New York", "London", "Dubai", "Singapore"]:
+            if loc.lower() in clean_q.lower():
+                location = loc
+                break
+
+        terms = [w.strip(' "\'') for w in clean_q.split() if w.strip(' "\'') and w.lower() != location.lower()]
+        search_param = " ".join(terms)
+        if location:
+            search_param += f' location:"{location}"'
+
         try:
-            # Extract keywords from dork like site:github.com "founder" "Bengaluru"
-            clean_q = query.replace('site:github.com', '').strip()
-            # Parse location if present
-            location = ""
-            for loc in ["Bengaluru", "Bangalore", "Mumbai", "Delhi", "Gurgaon", "Noida", "Hyderabad",
-                        "Pune", "Lahore", "Karachi", "Islamabad", "San Francisco", "New York", "London", "Dubai"]:
-                if loc.lower() in clean_q.lower():
-                    location = loc
-                    break
-
-            terms = [w.strip(' "\'') for w in clean_q.split() if w.strip(' "\'') and w.lower() != location.lower()]
-            search_param = " ".join(terms)
-            if location:
-                search_param += f' location:"{location}"'
-
             headers = {
                 "User-Agent": random_user_agent(),
                 "Accept": "application/vnd.github.v3+json"
@@ -194,8 +192,47 @@ class LeadDiscoveryEngine:
                     if len(leads) >= max_results:
                         break
         except Exception as e:
-            logger.debug(f"GitHub search error: {e}")
+            logger.debug(f"GitHub API search error: {e}")
 
+        # If rate-limited or insufficient results, fallback to GitHub HTML search
+        if len(leads) < max_results:
+            html_leads = self._search_github_html(search_param or clean_q, max_results - len(leads))
+            for hl in html_leads:
+                if not any(l['username'].lower() == hl['username'].lower() for l in leads):
+                    leads.append(hl)
+
+        return leads
+
+    def _search_github_html(self, search_param: str, max_results: int) -> List[Dict[str, Any]]:
+        leads = []
+        try:
+            headers = {
+                "User-Agent": random_user_agent(),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            }
+            pages_needed = max(1, (max_results // 10) + 1)
+            for p in range(1, pages_needed + 1):
+                resp = httpx.get("https://github.com/search", params={"q": search_param, "type": "users", "p": p}, headers=headers, timeout=10)
+                if resp.status_code == 200:
+                    links = re.findall(r'href="/([a-zA-Z0-9_\-]+)"', resp.text)
+                    ignored = {'features', 'pricing', 'login', 'signup', 'explore', 'topics', 'about', 'search', 'contact', 'security', 'orgs'}
+                    for u in links:
+                        if u.lower() not in ignored and not u.startswith('_') and len(u) > 1:
+                            if not any(l['username'].lower() == u.lower() for l in leads):
+                                leads.append({
+                                    "username": u,
+                                    "platform": "github",
+                                    "title": f"{u} (GitHub User)",
+                                    "url": f"https://github.com/{u}",
+                                    "snippet": ""
+                                })
+                                if len(leads) >= max_results:
+                                    break
+                if len(leads) >= max_results:
+                    break
+        except Exception as e:
+            logger.debug(f"GitHub HTML search error: {e}")
         return leads
 
     def _search_bing(self, query: str, max_results: int) -> List[Dict[str, str]]:
