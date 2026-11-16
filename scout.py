@@ -163,82 +163,120 @@ def enrich_profiles(profiles):
     if not profiles:
         return profiles
 
-    if not Confirm.ask("\n[white][+] Enrich leads with contact info?[/white]", default=True):
-        return profiles
+    do_enrich = Confirm.ask("\n[white][+] Enrich leads with contact info?[/white]", default=True)
+    enriched = profiles.copy()
+    if do_enrich:
+        from app.scrapers.enrichment import LeadEnricher
+        hunter_key = os.environ.get('HUNTER_API_KEY', '').strip() or None
+        enricher = LeadEnricher(hunter_api_key=hunter_key)
 
-    from app.scrapers.enrichment import LeadEnricher
-    hunter_key = os.environ.get('HUNTER_API_KEY', '').strip() or None
-    enricher = LeadEnricher(hunter_api_key=hunter_key)
+        console.print()
+        emails_found = 0
+        phones_found = 0
 
-    console.print()
-    emails_found = 0
-    phones_found = 0
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("[white]Enriching leads...", total=len(profiles))
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console
-    ) as progress:
-        task = progress.add_task("[white]Enriching leads...", total=len(profiles))
+            enriched = []
+            for p in profiles:
+                had_email = bool(p.get('email'))
+                had_phone = bool(p.get('phone'))
 
-        enriched = []
-        for p in profiles:
-            had_email = bool(p.get('email'))
-            had_phone = bool(p.get('phone'))
+                result = enricher.enrich_lead(p)
+                enriched.append(result)
 
-            result = enricher.enrich_lead(p)
-            enriched.append(result)
+                if result.get('email') and not had_email:
+                    emails_found += 1
+                if result.get('phone') and not had_phone:
+                    phones_found += 1
 
-            if result.get('email') and not had_email:
-                emails_found += 1
-            if result.get('phone') and not had_phone:
-                phones_found += 1
+                progress.advance(task)
 
-            progress.advance(task)
+        console.print()
 
-    console.print()
+        summary_parts = []
+        if emails_found:
+            summary_parts.append(f"[green]{emails_found} emails found[/green]")
+        if phones_found:
+            summary_parts.append(f"[green]{phones_found} phones found[/green]")
+        if not summary_parts:
+            summary_parts.append("[yellow]No new contact info found[/yellow]")
 
-    summary_parts = []
-    if emails_found:
-        summary_parts.append(f"[green]{emails_found} emails found[/green]")
-    if phones_found:
-        summary_parts.append(f"[green]{phones_found} phones found[/green]")
-    if not summary_parts:
-        summary_parts.append("[yellow]No new contact info found[/yellow]")
+        scores = [e.get('lead_score', 0) for e in enriched]
+        avg_score = sum(scores) // len(scores) if scores else 0
+        summary_parts.append(f"[white]Avg lead score: {avg_score}/100[/white]")
 
-    scores = [e.get('lead_score', 0) for e in enriched]
-    avg_score = sum(scores) // len(scores) if scores else 0
-    summary_parts.append(f"[white]Avg lead score: {avg_score}/100[/white]")
+        console.print(Rule("[bold white]Enrichment[/bold white]", style=ACCENT_DIM, align="left"))
+        console.print()
+        for part in summary_parts:
+            console.print(f"  {part}")
+        console.print()
 
-    console.print(Rule("[bold white]Enrichment[/bold white]", style=ACCENT_DIM, align="left"))
-    console.print()
-    for part in summary_parts:
-        console.print(f"  {part}")
-    console.print()
+        email_leads = [e for e in enriched if e.get('email')]
+        if email_leads:
+            t = Table(show_header=True, box=box.MINIMAL_HEAVY_HEAD, border_style="dim", padding=(0, 1))
+            t.add_column("Lead", style="white")
+            t.add_column("Email", style="white")
+            t.add_column("Confidence", style="green")
+            t.add_column("Source", style="dim")
+            t.add_column("Verified", style="yellow")
 
-    email_leads = [e for e in enriched if e.get('email')]
-    if email_leads:
-        t = Table(show_header=True, box=box.MINIMAL_HEAVY_HEAD, border_style="dim", padding=(0, 1))
-        t.add_column("Lead", style="white")
-        t.add_column("Email", style="white")
-        t.add_column("Confidence", style="green")
-        t.add_column("Source", style="dim")
-        t.add_column("Verified", style="yellow")
+            for e in email_leads:
+                name = e.get('full_name') or e.get('username', '?')
+                email_score = e.get('email_score', 0)
+                score_color = 'green' if email_score >= 70 else 'yellow' if email_score >= 40 else 'red'
+                verified = 'Yes' if e.get('email_verified') else 'No'
+                t.add_row(
+                    name[:25],
+                    e['email'],
+                    f"[{score_color}]{email_score}%[/{score_color}]",
+                    e.get('email_source', '?'),
+                    verified
+                )
 
-        for e in email_leads:
-            name = e.get('full_name') or e.get('username', '?')
-            email_score = e.get('email_score', 0)
-            score_color = 'green' if email_score >= 70 else 'yellow' if email_score >= 40 else 'red'
-            verified = 'Yes' if e.get('email_verified') else 'No'
-            t.add_row(
-                name[:25],
-                e['email'],
-                f"[{score_color}]{email_score}%[/{score_color}]",
-                e.get('email_source', '?'),
-                verified
-            )
+            console.print(t)
 
-        console.print(t)
+    # Agency Memory Matching (Targeting Indian, Pakistani & International clients)
+    try:
+        from app.memory import AgencyMemory, LeadMatcher
+        mem = AgencyMemory()
+        if mem.is_loaded:
+            matcher = LeadMatcher(mem)
+            enriched = [matcher.match_lead(item) for item in enriched]
+
+            console.print()
+            console.print(Rule(f"[bold white]Agency Intelligence ({mem.agency_name})[/bold white]", style=ACCENT_DIM, align="left"))
+            console.print()
+
+            mt = Table(show_header=True, box=box.MINIMAL_HEAVY_HEAD, border_style="dim", padding=(0, 1))
+            mt.add_column("Lead", style="white")
+            mt.add_column("Target Market", style="cyan")
+            mt.add_column("Fit Score", style="green")
+            mt.add_column("Matched Offering", style="dim")
+            mt.add_column("Outreach Ready", style="yellow")
+
+            for m in enriched:
+                m_name = m.get('full_name') or m.get('username', '?')
+                m_fit = m.get('agency_fit_score', 0)
+                m_fit_col = 'green' if m_fit >= 70 else 'yellow' if m_fit >= 40 else 'dim'
+                reg = m.get('market_region', 'Unknown')
+                top_svc = m.get('matched_services', '').split(',')[0][:28]
+                ready = "WhatsApp & Email" if (m.get('whatsapp_chat_link') and m.get('email')) else "WhatsApp" if m.get('whatsapp_chat_link') else "Email" if m.get('email') else "LinkedIn/DM"
+                mt.add_row(
+                    m_name[:20],
+                    reg,
+                    f"[{m_fit_col}]{m_fit}/100[/{m_fit_col}]",
+                    top_svc,
+                    ready
+                )
+            console.print(mt)
+            console.print()
+    except Exception as e:
+        logger.debug(f"Agency memory match skipped: {e}")
 
     return enriched
 
@@ -393,7 +431,14 @@ def show_header():
     else:
         proxy_str = "[dim]○ off[/dim]"
 
-    status = f"[dim]github.com/kiryano/Scout[/dim]  ·  [dim]Proxy:[/dim] {proxy_str}"
+    try:
+        from app.memory import AgencyMemory
+        _mem = AgencyMemory()
+        mem_str = f"[green]● {_mem.agency_name}[/green]" if _mem.is_loaded else "[dim]○ off[/dim]"
+    except Exception:
+        mem_str = "[dim]○ off[/dim]"
+
+    status = f"[dim]github.com/kiryano/Scout[/dim]  ·  [dim]Proxy:[/dim] {proxy_str}  ·  [dim]Memory:[/dim] {mem_str}"
     if _session_stats["scraped"] > 0:
         status += f"  ·  [dim]Scraped:[/dim] [white]{_session_stats['scraped']}[/white]"
     console.print(status, justify="center")
@@ -436,15 +481,18 @@ def show_menu():
     console.print(table)
     console.print()
 
-    console.print(Rule("[bold white]Tools[/bold white]", style=ACCENT_DIM, align="left"))
+    console.print(Rule("[bold white]Tools & Outreach[/bold white]", style=ACCENT_DIM, align="left"))
     console.print()
 
     tools_left = [
         ("9", "Bulk Scrape", "from file"),
         ("10", "Exports", "view files"),
+        ("13", "Lead Discovery", "Google X-Ray dorks"),
     ]
     tools_right = [
         ("11", "Settings", "config"),
+        ("12", "Agency Memory", "Pragtify profile"),
+        ("14", "WhatsApp Outreach", "one-click dispatch"),
         ("0", "Exit", ""),
     ]
 
@@ -529,7 +577,12 @@ def _standard_export(profiles, total, platform_name, item_type="profiles"):
             filename = f"{platform_name}_export_{timestamp}.csv"
             with open(filename, 'w', newline='', encoding='utf-8') as f:
                 if profiles:
-                    writer = csv.DictWriter(f, fieldnames=profiles[0].keys())
+                    all_keys = []
+                    for p in profiles:
+                        for k in p.keys():
+                            if k not in all_keys:
+                                all_keys.append(k)
+                    writer = csv.DictWriter(f, fieldnames=all_keys)
                     writer.writeheader()
                     writer.writerows(profiles)
             _export_result(filename, len(profiles), item_type)
@@ -1057,6 +1110,360 @@ def view_exports():
     console.print()
 
 
+def agency_memory_menu():
+    """Agency Profile & Memory configuration menu."""
+    from app.memory import AgencyMemory, LeadMatcher
+    mem = AgencyMemory()
+    matcher = LeadMatcher(mem)
+
+    while True:
+        console.clear()
+        _platform_header("Agency Memory", f"{mem.agency_name} Profile & Targeting")
+        stats = mem.get_stats_summary()
+
+        console.print(f"  [bold white]Agency:[/bold white] [bold {ACCENT}]{stats['name']}[/bold {ACCENT}]  [dim]({mem.website})[/dim]")
+        if mem.tagline:
+            console.print(f"  [dim]\"{mem.tagline}\"[/dim]")
+        console.print(f"  [white]Services:[/white] [green]{stats['services_count']}[/green]  ·  [white]Portfolio:[/white] [green]{stats['portfolio_count']}[/green]  ·  [white]Publications:[/white] [green]{stats['publications']}[/green]")
+        console.print()
+
+        console.print(Rule("[bold white]Profile Actions[/bold white]", style=ACCENT_DIM, align="left"))
+        console.print()
+        console.print(f"  [{ACCENT}][1][/{ACCENT}]  [bold white]View Agency Summary & Contact[/bold white]")
+        console.print(f"  [{ACCENT}][2][/{ACCENT}]  [bold white]View Services ({stats['services_count']})[/bold white]")
+        console.print(f"  [{ACCENT}][3][/{ACCENT}]  [bold white]View Portfolio ({stats['portfolio_count']})[/bold white]")
+        console.print(f"  [{ACCENT}][4][/{ACCENT}]  [bold white]Simulate / Test-Match a Lead[/bold white] [dim](India/Pak/Intl)[/dim]")
+        console.print(f"  [{ACCENT}][5][/{ACCENT}]  [bold white]Reload Memory from JSON[/bold white]")
+        console.print(f"  [{ACCENT}][0][/{ACCENT}]  [dim]Back to Main Menu[/dim]")
+        console.print()
+
+        choice = Prompt.ask(
+            f"[{ACCENT}]>[/{ACCENT}]",
+            choices=["0", "1", "2", "3", "4", "5"],
+            default="0",
+            show_choices=False
+        )
+
+        if choice == '0':
+            break
+
+        elif choice == '1':
+            console.print()
+            console.print(Panel(
+                f"[bold white]{mem.agency_name}[/bold white]\n"
+                f"[dim]Website:[/dim] {mem.website}\n"
+                f"[dim]Positioning:[/dim] {mem.agency.get('positioning', 'N/A')}\n"
+                f"[dim]Contact Email:[/dim] {mem.contact.get('email', 'N/A')}\n"
+                f"[dim]LinkedIn:[/dim] {mem.contact.get('linkedin', 'N/A')}\n"
+                f"[dim]Summary:[/dim] {mem.summary}",
+                border_style=ACCENT_DIM,
+                title="[bold white]Agency Profile[/bold white]",
+                padding=(1, 2)
+            ))
+            _pause()
+
+        elif choice == '2':
+            console.print()
+            t = Table(show_header=True, box=box.MINIMAL_HEAVY_HEAD, border_style="dim", padding=(0, 1))
+            t.add_column("Category", style="cyan")
+            t.add_column("Service", style="bold white")
+            t.add_column("Delivery", style="green")
+            t.add_column("Key Tags", style="dim")
+
+            for s in mem.services:
+                t.add_row(
+                    s.get("category", ""),
+                    s.get("name", ""),
+                    s.get("delivery_time", "N/A"),
+                    ", ".join(s.get("tags", [])[:4])
+                )
+            console.print(t)
+            _pause()
+
+        elif choice == '3':
+            console.print()
+            t = Table(show_header=True, box=box.MINIMAL_HEAVY_HEAD, border_style="dim", padding=(0, 1))
+            t.add_column("Project", style="bold white")
+            t.add_column("Type", style="cyan")
+            t.add_column("Industry", style="yellow")
+            t.add_column("Highlights", style="white")
+
+            for p in mem.portfolio:
+                hl = p.get("highlights", [])
+                hl_str = hl[0][:40] + "..." if hl else p.get("description", "")[:40]
+                t.add_row(
+                    p.get("name", "")[:25],
+                    p.get("type", ""),
+                    p.get("industry", ""),
+                    hl_str
+                )
+            console.print(t)
+            _pause()
+
+        elif choice == '4':
+            console.print()
+            console.print("[white]Simulate lead matching against Pragtify memory:[/white]")
+            name = Prompt.ask("Lead Name", default="Rohan Verma")
+            bio = Prompt.ask("Bio / Headline", default="Founder at D2C E-commerce brand in Bengaluru. Automating order workflows.")
+            phone = Prompt.ask("Phone Number", default="+919876543210")
+            website = Prompt.ask("Website", default="https://rohanstore.in")
+
+            test_lead = {
+                "full_name": name,
+                "bio": bio,
+                "headline": bio,
+                "phone": phone,
+                "website": website,
+            }
+
+            matched = matcher.match_lead(test_lead)
+
+            console.print()
+            console.print(Panel(
+                f"[bold white]Detected Region:[/bold white] [cyan]{matched['market_region']}[/cyan]\n"
+                f"[bold white]Agency Fit Score:[/bold white] [green]{matched['agency_fit_score']}/100[/green]\n"
+                f"[bold white]Matched Service:[/bold white] {matched['matched_services']}\n"
+                f"[bold white]Matched Portfolio:[/bold white] {matched['matched_portfolio']}\n\n"
+                f"[bold white]Custom Pitch:[/bold white]\n[dim]{matched['recommended_pitch']}[/dim]\n\n"
+                f"[bold white]WhatsApp Link:[/bold white]\n[{ACCENT}]{matched['whatsapp_chat_link'] or 'No Phone'}[/{ACCENT}]",
+                title=f"[bold white]Match Result for {name}[/bold white]",
+                border_style=ACCENT_DIM,
+                padding=(1, 2)
+            ))
+            _pause()
+
+        elif choice == '5':
+            mem.load_profile()
+            matcher = LeadMatcher(mem)
+            console.print("[green]✓ Reloaded Agency Memory successfully[/green]")
+            _pause()
+
+
+def discovery_interactive():
+    from app.scrapers.discovery import LeadDiscoveryEngine
+    engine = LeadDiscoveryEngine()
+
+    _platform_header("Lead Discovery", "Google / OSINT X-Ray Dorks")
+    console.print("[white]Find targeted decision makers across LinkedIn, Instagram, and GitHub.[/white]\n")
+    console.print(f"  [{ACCENT}][1][/{ACCENT}]  [bold white]Custom Dork Query[/bold white] [dim](e.g. site:linkedin.com/in \"Founder\" \"Fintech\" \"Bengaluru\")[/dim]")
+    console.print(f"  [{ACCENT}][2][/{ACCENT}]  [bold white]Guided ICP Query Builder[/bold white] [dim](Target role, industry & location)[/dim]")
+    console.print(f"  [{ACCENT}][0][/{ACCENT}]  [dim]Back[/dim]")
+    console.print()
+
+    choice = Prompt.ask(f"[{ACCENT}]>[/{ACCENT}]", choices=["0", "1", "2"], default="1")
+    if choice == '0':
+        return
+
+    query = ""
+    target_platform = "linkedin"
+
+    if choice == '1':
+        console.print()
+        console.print("[dim]Examples:[/dim]")
+        console.print("  site:linkedin.com/in \"Founder\" \"Fintech\" \"Bengaluru\"")
+        console.print("  site:linkedin.com/in \"CEO\" \"SaaS\" \"San Francisco\"")
+        console.print("  site:instagram.com \"D2C\" \"Founder\" \"Mumbai\"")
+        console.print("  site:github.com \"AI Engineer\" \"Lahore\"")
+        console.print()
+        query = Prompt.ask("[white]Enter Search Query / Dork[/white]", default='site:linkedin.com/in "Founder" "Fintech" "Bengaluru"')
+        target_platform = engine.detect_query_platform(query)
+
+    elif choice == '2':
+        console.print()
+        console.print("[white]Select Target Platform:[/white]")
+        console.print("  [1] LinkedIn (Decision Makers)")
+        console.print("  [2] Instagram (D2C, Creators, Agencies)")
+        console.print("  [3] GitHub (Technical Founders, AI Developers)")
+        p_choice = Prompt.ask("[>] Platform", choices=["1", "2", "3"], default="1")
+        p_map = {"1": "linkedin", "2": "instagram", "3": "github"}
+        target_platform = p_map[p_choice]
+
+        role = Prompt.ask("[>] Target Role / Title", default="Founder, CEO")
+        industry = Prompt.ask("[>] Industry / Niche", default="Fintech")
+        location = Prompt.ask("[>] Location / City", default="Bengaluru")
+
+        query = engine.build_dork(target_platform, role, industry, location)
+        console.print(f"\n[dim]Generated Dork:[/dim] [cyan]{query}[/cyan]\n")
+
+    if not query.strip():
+        return
+
+    max_count = int(Prompt.ask("[>] Max profiles to search for", default="10"))
+
+    console.print()
+    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console) as progress:
+        task = progress.add_task(f"[white]Searching dork: [dim]{query[:45]}...[/dim]", total=None)
+        discovered = engine.search_dork(query, max_results=max_count)
+        progress.stop()
+
+    if not discovered:
+        console.print("\n[yellow]No matching profiles discovered. Try broadening your dork keywords.[/yellow]\n")
+        return
+
+    console.print(f"\n  [green]✓ Discovered {len(discovered)} profiles[/green]\n")
+
+    t = Table(show_header=True, box=box.MINIMAL_HEAVY_HEAD, border_style="dim", padding=(0, 1))
+    t.add_column("#", style="dim", width=3)
+    t.add_column("Username / Handle", style="bold white")
+    t.add_column("Platform", style="cyan")
+    t.add_column("Title / Snippet", style="white")
+
+    usernames = []
+    for i, d in enumerate(discovered, 1):
+        u = d.get("username") or "?"
+        if d.get("username"):
+            usernames.append(d["username"])
+        snippet = d.get("title") or d.get("snippet") or d.get("url")
+        t.add_row(str(i), u, d.get("platform", "").upper(), snippet[:50])
+
+    console.print(t)
+    console.print()
+
+    if usernames and Confirm.ask(f"[+] Scrape & enrich these {len(usernames)} {target_platform} profiles now?", default=True):
+        console.print()
+        profiles = []
+        if target_platform == "linkedin":
+            from app.scrapers.linkedin import scrape_linkedin_profile
+            cookie = os.environ.get('LINKEDIN_COOKIE', '').strip()
+            if not cookie:
+                console.print("[yellow]LinkedIn cookie not configured in .env. Skipping deep profile scrape, enriching discovered data directly...[/yellow]")
+                profiles = [{"username": u, "full_name": u.replace('-', ' ').title(), "headline": d.get("title", "")} for d in discovered if d.get("username")]
+            else:
+                profiles = _standard_scrape_loop(scrape_linkedin_profile, usernames, label_prefix="", delay_range=(3.0, 5.0))
+        elif target_platform == "instagram":
+            from app.scrapers.instagram import scrape_profile_no_login
+            profiles = _standard_scrape_loop(scrape_profile_no_login, usernames, label_prefix="@", delay_range=(1.5, 3.5))
+        elif target_platform == "github":
+            from app.scrapers.github import scrape_profile
+            profiles = _standard_scrape_loop(scrape_profile, usernames, label_prefix="", delay_range=(0.5, 1.5))
+        else:
+            profiles = [{"username": u, "full_name": u} for u in usernames]
+
+        _standard_export(profiles, len(usernames), f"discovery_{target_platform}")
+
+
+def whatsapp_dispatcher_interactive():
+    from app.scrapers.whatsapp_dispatcher import WhatsAppDispatcher
+    dispatcher = WhatsAppDispatcher()
+
+    _platform_header("WhatsApp Dispatcher", "One-Click & Campaign Outreach")
+    console.print("[white]Launch semi-automated WhatsApp outreach with pre-filled, personalized pitches.[/white]\n")
+
+    console.print(f"  [{ACCENT}][1][/{ACCENT}]  [bold white]Dispatch from Recent Export CSV[/bold white]")
+    console.print(f"  [{ACCENT}][2][/{ACCENT}]  [bold white]Manual One-Click Dispatch[/bold white] [dim](Enter phone & custom pitch)[/dim]")
+    console.print(f"  [{ACCENT}][3][/{ACCENT}]  [bold white]View Dispatched History ({len(dispatcher.sent_numbers)} sent)[/bold white]")
+    console.print(f"  [{ACCENT}][0][/{ACCENT}]  [dim]Back[/dim]")
+    console.print()
+
+    choice = Prompt.ask(f"[{ACCENT}]>[/{ACCENT}]", choices=["0", "1", "2", "3"], default="1")
+    if choice == '0':
+        return
+
+    if choice == '1':
+        csv_files = list(Path('.').glob('*_export_*.csv'))
+        if not csv_files:
+            console.print("\n[yellow]No export CSV files found. Run a scrape first to generate leads.[/yellow]\n")
+            return
+
+        csv_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        console.print("\n[white]Select Export File:[/white]")
+        for i, f in enumerate(csv_files[:8], 1):
+            console.print(f"  [{ACCENT}][{i}][/{ACCENT}] {f.name}")
+        console.print()
+
+        f_choice = Prompt.ask("[>] File #", choices=[str(i) for i in range(1, min(len(csv_files)+1, 9))], default="1")
+        chosen_file = csv_files[int(f_choice) - 1]
+
+        leads = dispatcher.load_leads_from_csv(str(chosen_file))
+        ready_leads = dispatcher.get_ready_leads(leads, filter_sent=False)
+
+        if not ready_leads:
+            console.print(f"\n[yellow]No leads with phone numbers or WhatsApp links found in {chosen_file.name}.[/yellow]\n")
+            return
+
+        console.print(f"\n  [green]Found {len(ready_leads)} leads with phone/WhatsApp in {chosen_file.name}[/green]\n")
+
+        t = Table(show_header=True, box=box.MINIMAL_HEAVY_HEAD, border_style="dim", padding=(0, 1))
+        t.add_column("#", style="dim", width=3)
+        t.add_column("Lead", style="bold white")
+        t.add_column("Phone", style="cyan")
+        t.add_column("Market", style="yellow")
+        t.add_column("Fit Score", style="green")
+        t.add_column("Status", style="dim")
+
+        for idx, l in enumerate(ready_leads[:15], 1):
+            name = l.get("full_name") or l.get("username", "?")
+            phone = l.get("phone", "")
+            sent = "[green]Sent[/green]" if dispatcher.is_dispatched(phone) else "[dim]Ready[/dim]"
+            t.add_row(
+                str(idx),
+                name[:20],
+                phone[:16],
+                l.get("market_region", "N/A"),
+                f"{l.get('agency_fit_score', 0)}/100",
+                sent
+            )
+        console.print(t)
+        console.print()
+
+        console.print(f"  [{ACCENT}][1][/{ACCENT}]  [bold white]Interactive Batch Dispatch[/bold white] [dim](Opens WhatsApp tab per lead)[/dim]")
+        console.print(f"  [{ACCENT}][2][/{ACCENT}]  [bold white]Open Single Lead[/bold white] [dim](by #)[/dim]")
+        console.print(f"  [{ACCENT}][3][/{ACCENT}]  [bold white]Export WhatsApp Campaign CSV[/bold white]")
+        console.print(f"  [{ACCENT}][0][/{ACCENT}]  [dim]Cancel[/dim]")
+        console.print()
+
+        action = Prompt.ask(f"[{ACCENT}]>[/{ACCENT}]", choices=["0", "1", "2", "3"], default="1")
+        if action == '1':
+            unmessaged = dispatcher.get_ready_leads(ready_leads, filter_sent=True)
+            if not unmessaged:
+                console.print("\n[yellow]All leads in this file have already been dispatched![/yellow]\n")
+                return
+
+            console.print(f"\n[white]Starting batch outreach for {len(unmessaged)} unmessaged leads...[/white]")
+            console.print("[dim]Each tab will open with your pre-filled custom pitch. Review and hit send in WhatsApp.[/dim]\n")
+
+            for idx, lead in enumerate(unmessaged, 1):
+                name = lead.get("full_name") or lead.get("username", "there")
+                console.print(f"[{idx}/{len(unmessaged)}] Ready for [bold white]{name}[/bold white] ({lead.get('phone')})")
+                proceed = Prompt.ask("[Enter] Open in WhatsApp Web / [s] Skip / [q] Quit", default="")
+                if proceed.lower() == 'q':
+                    break
+                elif proceed.lower() == 's':
+                    continue
+                else:
+                    dispatcher.dispatch_lead(lead)
+                    console.print(f"  [green]✓ Opened tab for {name}[/green]")
+            console.print("\n[green]Batch session finished.[/green]\n")
+
+        elif action == '2':
+            num = int(Prompt.ask(f"[>] Enter lead # (1-{len(ready_leads)})", default="1"))
+            if 1 <= num <= len(ready_leads):
+                target_lead = ready_leads[num - 1]
+                dispatcher.dispatch_lead(target_lead)
+                console.print(f"  [green]✓ Opened WhatsApp chat for {target_lead.get('full_name')}[/green]")
+
+        elif action == '3':
+            exp = dispatcher.export_campaign_csv(ready_leads)
+            console.print(f"  [green]✓ Exported campaign file: {exp}[/green]")
+
+    elif choice == '2':
+        phone = Prompt.ask("Phone Number (with country code, e.g. +91 98765 43210)")
+        pitch = Prompt.ask("Custom Message", default="Hi, saw your venture and wanted to connect!")
+        test_lead = {"phone": phone, "recommended_pitch": pitch}
+        dispatcher.dispatch_lead(test_lead)
+        console.print("[green]✓ Opened WhatsApp in your browser[/green]")
+
+    elif choice == '3':
+        console.print(f"\n[white]Total dispatched phone numbers recorded:[/white] [green]{len(dispatcher.sent_numbers)}[/green]")
+        if dispatcher.sent_numbers:
+            for p in list(dispatcher.sent_numbers)[:10]:
+                console.print(f"  [dim]• {p}[/dim]")
+        if Confirm.ask("\n[>] Clear dispatched history?", default=False):
+            dispatcher.sent_numbers.clear()
+            dispatcher._save_tracker()
+            console.print("[green]✓ History cleared[/green]")
+
+
 def main():
     _update_thread = _start_update_check()
     console.clear()
@@ -1083,7 +1490,7 @@ def main():
         try:
             choice = Prompt.ask(
                 f"[{ACCENT}]>[/{ACCENT}]",
-                choices=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+                choices=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"],
                 default="1",
                 show_choices=False
             )
@@ -1123,6 +1530,12 @@ def main():
                 view_exports()
             elif choice == '11':
                 settings_menu()
+            elif choice == '12':
+                agency_memory_menu()
+            elif choice == '13':
+                discovery_interactive()
+            elif choice == '14':
+                whatsapp_dispatcher_interactive()
 
             _pause()
             console.clear()

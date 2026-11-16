@@ -45,19 +45,16 @@ Interactive CLI for scraping profiles, enriching leads with contact info, and ex
 
 ## Features
 
-- 8 platform scrapers with consistent output format
-- Email enrichment with SMTP verification (no paid API needed)
-- Company domain detection from headline/bio
-- Email pattern detection (first.last@company.com patterns)
-- Lead scoring (0-100)
-- Website deep scraping for contact info
-- Bio link scraping (Linktree, WhatsApp, tel: links)
-- CSV export with enriched data
-- Bulk scraping from username lists (CSV/TXT)
-- Proxy rotation and user-agent rotation
-- Configurable scrape delay and proxy settings
-- Automatic update checker with version enforcement
-- Debug logging with `--verbose` flag
+- **8 Platform Scrapers**: Instagram, TikTok, LinkedIn, GitHub, YouTube, Twitch, Pinterest, Linktree
+- **Lead Discovery Engine (Google X-Ray Dorks)**: Discover decision makers without manual username hunting (e.g. `site:linkedin.com/in "Founder" "Fintech" "Bengaluru"`)
+- **Agency Memory Knowledge Base**: Persistent memory profile (`app/memory/agency_profile.json`) storing agency services, case studies, core strengths, and credentials
+- **Website Tech-Stack & Opportunity Sniffer**: Inspects client websites for Shopify, WordPress, Next.js, and flags missing conversational AI/chat widgets or slow latency
+- **Regional Lead Matching & Pitch Generation**: Tailors outreach for **Indian** (WhatsApp-first, 2-3 wk turnaround), **Pakistani** (agile engineering & white-label), and **International** (enterprise architecture, publications & metrics) clients
+- **One-Click WhatsApp Outreach**: Automated click-to-chat links (`wa.me`) with pre-filled messages and interactive batch browser dispatch
+- **Email Enrichment with SMTP Verification**: Direct port 25 MX handshake verification without paid API keys
+- **Company Domain Detection**: Predicts domains from headlines and bios
+- **Email Pattern Detection**: Auto-detects corporate formats (`first.last@company.com`)
+- **CSV Export with Enriched Intelligence**: Includes agency fit scores, tech hooks, pitches, and direct WhatsApp links
 
 ## LinkedIn Setup
 
