@@ -1,4 +1,4 @@
-# Scout // Autonomous Lead Discovery & Intelligence Matrix
+# Scout // Autonomous Client Discovery & Sales Intelligence Matrix
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
@@ -6,16 +6,16 @@
 [![Agent Ready](https://img.shields.io/badge/Agent%20Ready-AGENT.md-blueviolet?style=flat&logo=openai)](AGENT.md)
 [![Maintainer](https://img.shields.io/badge/Unofficial%20Maintainer-Harsh%20(@HarshKuro)-black?style=flat&logo=github)](https://github.com/HarshKuro)
 
-> Autonomous, high-scale lead generation engine for appointment setters, sales developers, and agency owners. Discovers decision makers across 8+ platforms, sniffs client tech stacks, verifies emails & phone numbers, and dynamically generates custom cold pitches powered by an Agency Memory Knowledge Base.
+> High-scale client acquisition engine for agencies, appointment setters, and consultants. Specifically engineered to acquire **high-value non-technical clients** (Founders, Owners, Managing Directors of D2C brands, luxury real estate, private clinics, B2B exporters, and hospitality) who have real budgets and lack technical expertise. **Zero time wasted pitching developers or programmers who code.**
 
 ---
 
 ## ⚡ Key Highlights & Extended Capabilities
 
-* **Lead Discovery Engine (Google X-Ray Dorks & Direct Scraping)**: Zero manual username hunting. Automatically targets Founders, CEOs, and CTOs across **India**, **Pakistan**, and **International** markets.
+* **Non-Tech High-Value Client Targeting**: Zero wasted effort on developers. Discovers decision makers with buying power across **D2C Brands**, **Luxury Real Estate**, **Healthcare Clinics**, **B2B Exporters**, and **Hospitality** in **India**, **Pakistan**, and **International** markets.
 * **Agency Memory Knowledge Base (`app/memory/agency_profile.json`)**: Ingests agency capabilities, case studies, delivery timelines, and tech stack to calculate 0–100 Agency Fit Scores and craft tailored cold pitches.
-* **Website Tech-Stack & Opportunity Sniffer**: Inspects leads' domains for Shopify, WordPress, Next.js, and flags missing conversational AI/chat widgets or slow loading speeds for high-converting outreach hooks.
-* **Multi-Channel Contact Intelligence**: Direct extraction of phone numbers, verified emails via SMTP handshake, LinkedIn profiles, and Instagram handles.
+* **Website Tech-Stack & Opportunity Sniffer**: Inspects client storefronts and sites for Shopify, WordPress, WooCommerce, Next.js, and flags missing conversational AI/chat widgets or slow loading speeds for high-converting outreach hooks.
+* **Multi-Channel Contact Intelligence**: Direct extraction of phone numbers, WhatsApp click-to-chat links, verified emails via SMTP handshake, LinkedIn profiles, and Instagram handles.
 * **One-Click WhatsApp Dispatch**: Click-to-chat `wa.me` links pre-filled with tailored pitches for semi-automated sales follow-ups.
 * **Interactive AI Leads Dashboard (`leads_dashboard.html`)**: Dynamic, ultra-clean black-and-white minimalist matrix interface with dotted accents, vertical capsule filters, drag-and-drop CSV ingestion, and 1-click clipboard copy.
 * **Autonomous Agent Directives (`AGENT.md`)**: Full operating manual allowing AI agents (Antigravity, Claude Code, Codex, Cursor, Devin) to autonomously configure agency memory, discover leads, verify contacts, and launch campaigns.
@@ -50,18 +50,25 @@ cp .env.example .env
 
 ## 🚀 Quickstart & Usage
 
-### 1. High-Scale Autonomous Lead Generation (`find_leads.py`)
+### 1. High-Scale Autonomous Client Discovery (`find_leads.py`)
 
-Run the dynamic discovery runner to automatically find, enrich, and score leads:
+Run the dynamic discovery runner to automatically find, enrich, and score non-tech business clients:
 
 ```bash
-# Find and enrich 100+ decision makers across all regions (default)
+# Find and enrich 100+ non-tech decision makers across all regions (default)
 python find_leads.py --target 100
 
+# Target specific non-tech client niches
+python find_leads.py --niche d2c --target 50            # E-Commerce & D2C Brands (Shopify/WooCommerce)
+python find_leads.py --niche real-estate --target 50    # Luxury Real Estate Developers & Builders
+python find_leads.py --niche healthcare --target 50     # Dental Clinic Chains & Aesthetic Dermatology
+python find_leads.py --niche b2b --target 50            # Textile Mills, Pharma, Chemical Exporters
+python find_leads.py --niche hospitality --target 50    # Boutique Hotels, Fine Dining, Luxury Resorts
+
 # Target specific regional markets
-python find_leads.py --target 50 --region india
-python find_leads.py --target 50 --region pakistan
-python find_leads.py --target 50 --region international
+python find_leads.py --niche d2c --region india --target 40
+python find_leads.py --niche d2c --region pakistan --target 40
+python find_leads.py --niche real-estate --region international --target 40
 
 # Use custom agency profile & output path with controlled concurrency
 python find_leads.py --profile app/memory/agency_profile.json --output my_leads.csv --concurrency 10
@@ -69,6 +76,7 @@ python find_leads.py --profile app/memory/agency_profile.json --output my_leads.
 
 #### CLI Parameters:
 * `--target`: Target number of validated leads to discover (e.g. `100`).
+* `--niche`: `all` | `d2c` | `real-estate` | `healthcare` | `b2b` | `hospitality`.
 * `--region`: `all` | `india` | `pakistan` | `international`.
 * `--profile`: Path to custom agency memory profile JSON.
 * `--output`: CSV destination file path.
