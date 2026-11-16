@@ -2,6 +2,7 @@ import csv
 import time
 import os
 import re
+import argparse
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.console import Console
@@ -67,23 +68,30 @@ TARGET_QUERIES = [
     {"region": "International", "query": "founder location:Austin"},
 ]
 
-def run_lead_generation(target_count: int = 100):
-    console.print("\n[bold cyan]=== Pragtify High-Scale Lead Discovery & Enrichment Engine ===[/bold cyan]\n")
+def run_lead_generation(target_count: int = 100, region_filter: str = "all", profile_path: str = None, output_path: str = None, concurrency: int = 10):
+    console.print("\n[bold cyan]=== Scout High-Scale Lead Discovery & Enrichment Engine ===[/bold cyan]\n")
 
-    memory = AgencyMemory()
+    memory = AgencyMemory(profile_path=profile_path) if profile_path else AgencyMemory()
     matcher = LeadMatcher(memory)
     discovery = LeadDiscoveryEngine()
     enricher = LeadEnricher()
 
     console.print(f"[white]Agency Memory:[/white] [bold green]{memory.agency_name}[/bold green] | Services: [green]{len(memory.services)}[/green] | Case Studies: [green]{len(memory.portfolio)}[/green]")
-    console.print(f"[white]Goal:[/white] Discover & enrich at least [bold yellow]{target_count}[/bold yellow] high-fit leads across India, Pakistan & International.\n")
+    console.print(f"[white]Goal:[/white] Discover & enrich at least [bold yellow]{target_count}[/bold yellow] high-fit leads (Region: [bold cyan]{region_filter.upper()}[/bold cyan]).\n")
 
-    # Step 1: Discover candidate usernames across all regions
+    # Filter target queries if specific region requested
+    active_queries = TARGET_QUERIES
+    if region_filter and region_filter.lower() != "all":
+        active_queries = [q for q in TARGET_QUERIES if q["region"].lower() == region_filter.lower()]
+        if not active_queries:
+            active_queries = TARGET_QUERIES
+
+    # Step 1: Discover candidate usernames across target regions
     console.print("[bold yellow][1/3] Searching & Discovering Profiles Across Target Hubs...[/bold yellow]")
     discovered = []
     seen = set()
 
-    for item in TARGET_QUERIES:
+    for item in active_queries:
         reg = item["region"]
         q = item["query"]
         results = discovery._search_github_html(q, max_results=20)
@@ -96,7 +104,7 @@ def run_lead_generation(target_count: int = 100):
         if len(discovered) >= target_count * 3:
             break
 
-    console.print(f"[green]✓ Discovered {len(discovered)} potential decision-maker profiles across India, Pakistan & Global.[/green]\n")
+    console.print(f"[green]✓ Discovered {len(discovered)} potential decision-maker profiles.[/green]\n")
 
     # Step 2: Concurrently scrape and enrich profiles
     console.print(f"[bold yellow][2/3] Extracting Profiles, Socials (LinkedIn/Insta), Tech Stacks & Contacts...[/bold yellow]")
@@ -121,7 +129,7 @@ def run_lead_generation(target_count: int = 100):
         except Exception:
             return None
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
         futures = {executor.submit(_worker, it): it for it in batch_targets}
         for future in as_completed(futures):
             res = future.result()
@@ -191,8 +199,13 @@ def run_lead_generation(target_count: int = 100):
         "github_url"
     ]
 
+    # Target filenames
+    target_csv_files = [csv_timestamped, csv_latest]
+    if output_path and output_path not in target_csv_files:
+        target_csv_files.insert(0, output_path)
+
     saved_csv_files = []
-    for fname in [csv_timestamped, csv_latest]:
+    for fname in target_csv_files:
         try:
             with open(fname, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=export_columns, extrasaction="ignore")
@@ -208,7 +221,7 @@ def run_lead_generation(target_count: int = 100):
                     writer.writerow(clean_row)
             saved_csv_files.append(fname)
         except PermissionError:
-            alt_fname = f"pragtify_leads_100_{timestamp}.csv"
+            alt_fname = f"leads_export_{timestamp}.csv"
             try:
                 with open(alt_fname, "w", newline="", encoding="utf-8") as f:
                     writer = csv.DictWriter(f, fieldnames=export_columns, extrasaction="ignore")
@@ -235,7 +248,7 @@ def run_lead_generation(target_count: int = 100):
                 dispatcher.export_campaign_csv(ready_leads, wfname)
             except PermissionError:
                 try:
-                    dispatcher.export_campaign_csv(ready_leads, f"whatsapp_campaign_100_{timestamp}.csv")
+                    dispatcher.export_campaign_csv(ready_leads, f"whatsapp_campaign_export_{timestamp}.csv")
                 except Exception:
                     pass
 
@@ -246,7 +259,7 @@ def run_lead_generation(target_count: int = 100):
     leads_with_li = sum(1 for l in processed_leads if l.get("linkedin_url"))
     leads_with_ig = sum(1 for l in processed_leads if l.get("instagram_url"))
 
-    console.print(f"[bold green]✓ Master Lead Export saved to:[/bold green] [white]{csv_latest}[/white]")
+    console.print(f"[bold green]✓ Master Lead Export saved to:[/bold green] [white]{saved_csv_files[0] if saved_csv_files else csv_latest}[/white]")
     if ready_leads:
         console.print(f"[bold green]✓ WhatsApp Campaign Export saved to:[/bold green] [white]{wa_latest}[/white]")
 
@@ -291,7 +304,26 @@ def run_lead_generation(target_count: int = 100):
     console.print("\n")
     console.print(table)
     console.print()
-    return csv_latest, wa_latest
+    return saved_csv_files[0] if saved_csv_files else csv_latest, wa_latest
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Scout High-Scale Lead Discovery & Dynamic Enrichment Engine")
+    parser.add_argument("--target", type=int, default=100, help="Target number of leads to enrich (default: 100)")
+    parser.add_argument("--region", type=str, default="all", choices=["all", "india", "pakistan", "international"], help="Filter by region (all, india, pakistan, international)")
+    parser.add_argument("--profile", type=str, default=None, help="Path to custom agency profile JSON")
+    parser.add_argument("--output", type=str, default="pragtify_leads_latest.csv", help="Custom output CSV path")
+    parser.add_argument("--concurrency", type=int, default=10, help="Concurrent worker threads (default: 10)")
+
+    args = parser.parse_args()
+    run_lead_generation(
+        target_count=args.target,
+        region_filter=args.region,
+        profile_path=args.profile,
+        output_path=args.output,
+        concurrency=args.concurrency
+    )
+
 
 if __name__ == "__main__":
-    run_lead_generation(target_count=110)
+    main()
