@@ -50,6 +50,15 @@ class LeadEnricher:
             site_info = self._deep_scrape_website(website)
             site_emails = site_info.get('all_emails', [])
 
+            if site_info.get('tech_analysis'):
+                ta = site_info['tech_analysis']
+                enriched['detected_technologies'] = ta.get('detected_technologies', [])
+                enriched['cms_platform'] = ta.get('cms', '')
+                enriched['has_chat_widget'] = ta.get('has_chat_widget', False)
+                enriched['chat_widget'] = ta.get('chat_widget', '')
+                enriched['tech_opportunities'] = ta.get('opportunities', [])
+                enriched['tech_summary'] = ta.get('tech_summary', '')
+
             if site_info['email']:
                 email_candidates.append((site_info['email'], 'website'))
             if site_info['phone'] and not enriched.get('phone'):
@@ -63,6 +72,14 @@ class LeadEnricher:
                 if not website_is_useful:
                     site_info = self._deep_scrape_website('https://' + company_domain)
                     site_emails = site_info.get('all_emails', [])
+                    if site_info.get('tech_analysis'):
+                        ta = site_info['tech_analysis']
+                        enriched['detected_technologies'] = ta.get('detected_technologies', [])
+                        enriched['cms_platform'] = ta.get('cms', '')
+                        enriched['has_chat_widget'] = ta.get('has_chat_widget', False)
+                        enriched['chat_widget'] = ta.get('chat_widget', '')
+                        enriched['tech_opportunities'] = ta.get('opportunities', [])
+                        enriched['tech_summary'] = ta.get('tech_summary', '')
                     if site_info['email']:
                         email_candidates.append((site_info['email'], 'website'))
                     if site_info['phone'] and not enriched.get('phone'):
@@ -193,20 +210,27 @@ class LeadEnricher:
         return None
 
     def _fetch_page(self, url: str) -> Optional[str]:
+        text, _, _ = self._fetch_page_with_meta(url)
+        return text
+
+    def _fetch_page_with_meta(self, url: str) -> Tuple[Optional[str], Dict[str, str], float]:
+        import time as _t
+        start = _t.time()
         try:
             if not url.startswith('http'):
                 url = 'https://' + url
             resp = httpx.get(url, timeout=10, headers={
                 'User-Agent': random_user_agent()
             }, follow_redirects=True)
+            load_time = _t.time() - start
             if resp.status_code == 200:
-                return resp.text
+                return resp.text, dict(resp.headers), load_time
         except Exception as e:
             logger.debug(f"Error fetching {url}: {e}")
-        return None
+        return None, {}, 0.0
 
     def _deep_scrape_website(self, website: str) -> Dict:
-        result = {'email': None, 'phone': None, 'all_emails': []}
+        result = {'email': None, 'phone': None, 'all_emails': [], 'tech_analysis': None}
 
         if not website.startswith('http'):
             website = 'https://' + website
@@ -221,10 +245,19 @@ class LeadEnricher:
 
         all_emails = []
 
-        for url in pages_to_check:
-            html = self._fetch_page(url)
+        for idx, url in enumerate(pages_to_check):
+            html, headers, load_time = self._fetch_page_with_meta(url)
             if not html:
                 continue
+
+            # Run TechSniffer on primary page
+            if idx == 0 and not result.get('tech_analysis'):
+                try:
+                    from app.scrapers.tech_sniffer import TechSniffer
+                    sniffer = TechSniffer()
+                    result['tech_analysis'] = sniffer.analyze_html(html, headers, load_time, url)
+                except Exception as e:
+                    logger.debug(f"TechSniffer error: {e}")
 
             emails = re.findall(EMAIL_RE, html)
             valid = [e for e in emails if self._is_valid_email(e)]
