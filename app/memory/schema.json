@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pragtify Agency Profile",
+  "description": "Schema for the Pragtify profile. Fields marked FILTER are meant for filtering/search (exact-match or array-contains).",
+  "type": "object",
+  "required": ["agency", "services", "portfolio"],
+  "properties": {
+    "agency": {
+      "type": "object",
+      "required": ["name", "website", "summary"],
+      "properties": {
+        "name": { "type": "string" },
+        "website": { "type": "string", "format": "uri" },
+        "tagline": { "type": "string" },
+        "positioning": { "type": "string" },
+        "location": { "type": "string" },
+        "contact": {
+          "type": "object",
+          "properties": {
+            "email": { "type": "string" },
+            "phone": { "type": "string" },
+            "linkedin": { "type": "string" },
+            "github": { "type": "string" }
+          }
+        },
+        "summary": { "type": "string" }
+      }
+    },
+
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "name", "description"],
+        "properties": {
+          "id": { "type": "string", "description": "Unique slug, e.g. web-development" },
+          "category": {
+            "type": "string",
+            "description": "FILTER. Single value.",
+            "enum": ["development", "mobile", "enterprise", "automation", "ai-ml", "marketing", "design", "support"]
+          },
+          "name": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "description": { "type": "string" },
+          "tags": {
+            "type": "array",
+            "description": "FILTER. Free-form keywords, lowercase, e.g. [\"rag\", \"llm\", \"saas\"].",
+            "items": { "type": "string" }
+          },
+          "technologies": {
+            "type": "array",
+            "description": "FILTER. Tech used for this service.",
+            "items": { "type": "string" }
+          },
+          "industries": {
+            "type": "array",
+            "description": "FILTER. Target industries, e.g. [\"fintech\", \"restaurant\", \"healthcare\"].",
+            "items": { "type": "string" }
+          },
+          "delivery_time": {
+            "type": "string",
+            "description": "FILTER. e.g. \"2-4 weeks\"."
+          },
+          "featured": { "type": "boolean", "description": "FILTER." }
+        }
+      }
+    },
+
+    "portfolio": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "type", "description"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": {
+            "type": "string",
+            "description": "FILTER. e.g. \"AI / Agents\", \"Automation\", \"Enterprise / CRM\", \"Client project\"."
+          },
+          "service_ids": {
+            "type": "array",
+            "description": "FILTER. Links to services[].id this project demonstrates.",
+            "items": { "type": "string" }
+          },
+          "status": {
+            "type": "string",
+            "description": "FILTER.",
+            "enum": ["live", "in-progress", "completed", "prototype"]
+          },
+          "period": { "type": "string" },
+          "year": { "type": "integer", "description": "FILTER." },
+          "industry": { "type": "string", "description": "FILTER." },
+          "tags": { "type": "array", "items": { "type": "string" }, "description": "FILTER." },
+          "tech_stack": { "type": "array", "items": { "type": "string" }, "description": "FILTER." },
+          "description": { "type": "string" },
+          "highlights": { "type": "array", "items": { "type": "string" } },
+          "links": {
+            "type": "object",
+            "properties": {
+              "live": { "type": "string" },
+              "repo": { "type": "string" },
+              "case_study": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "technical_expertise": {
+      "type": "object",
+      "description": "Keys are skill groups; values are arrays of skills. FILTER by group or by skill name.",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+
+    "ai_ml_and_automation_offerings": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+
+    "research_and_publications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string" },
+          "venue": { "type": "string" },
+          "year": { "type": "integer", "description": "FILTER." },
+          "status": { "type": "string", "description": "FILTER." },
+          "tags": { "type": "array", "items": { "type": "string" }, "description": "FILTER." },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+
+    "certifications": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+
+    "achievements": { "type": "array", "items": { "type": "string" } },
+    "open_source_and_kernel_development": { "type": "array", "items": { "type": "string" } },
+    "delivery_approach": { "type": "array", "items": { "type": "string" } },
+    "core_strengths": { "type": "array", "items": { "type": "string" } },
+    "team_credentials": { "type": "object" }
+  }
+}

@@ -1,0 +1,347 @@
+{
+  "agency": {
+    "name": "Pragtify",
+    "website": "https://pragtify.com",
+    "tagline": "AI, automation and full-stack software engineering for businesses",
+    "positioning": "Technology agency building web, mobile, enterprise, AI/ML and automation solutions with clean architecture, scalable from day one.",
+    "location": "Chandigarh, India",
+    "contact": {
+      "email": "<ADD_AGENCY_EMAIL>",
+      "phone": "<ADD_AGENCY_PHONE>",
+      "linkedin": "<ADD_AGENCY_LINKEDIN>",
+      "github": "https://github.com/HarshKuro"
+    },
+    "summary": "Pragtify is a technology agency specializing in Generative AI, LLM applications, RAG pipelines, AI agents, workflow automation and full-stack product engineering (TypeScript, Node.js, Python, PostgreSQL) with cloud deployment on AWS, GCP and VPS. The team has delivered fintech, restaurant POS, CRM and live flight tracking applications, publishes peer-reviewed research, contributes to the Linux kernel, and maintains 150+ open source GitHub repositories."
+  },
+
+  "core_strengths": [
+    "Generative AI and LLM application development",
+    "RAG pipelines, semantic search and vector databases (pgvector)",
+    "AI agents and multi-agent systems (LangChain, LangGraph)",
+    "Workflow and social media automation",
+    "Machine learning, NLP and statistical analysis",
+    "Full-stack web, SaaS, CRM and enterprise software",
+    "Systems-level expertise: Linux and Android kernel, power optimization",
+    "Product management: requirements, user stories, roadmaps, stakeholder management",
+    "SEO and GEO (generative engine optimization)"
+  ],
+
+  "services": [
+    {
+      "category": "development",
+      "name": "Website Development",
+      "url": "https://pragtify.com/services/web-development",
+      "description": "Fast, beautiful websites that convert visitors into customers. Built to perform."
+    },
+    {
+      "category": "development",
+      "name": "Web Applications",
+      "url": "https://pragtify.com/services/web-applications",
+      "description": "Complex web apps with clean architecture. Scalable from day one."
+    },
+    {
+      "category": "development",
+      "name": "SaaS Platforms",
+      "url": "https://pragtify.com/services/saas-development",
+      "description": "Multi-tenant SaaS products with subscription billing, dashboards, and user management."
+    },
+    {
+      "category": "development",
+      "name": "MVP Development",
+      "url": "https://pragtify.com/services/mvp-development",
+      "description": "Go from idea to working product in weeks. Validate before you invest big."
+    },
+    {
+      "category": "development",
+      "name": "API Integrations",
+      "url": "https://pragtify.com/services/api-integrations",
+      "description": "Connect your tools, platforms, and data sources seamlessly."
+    },
+    {
+      "category": "mobile",
+      "name": "Android App Development",
+      "url": "https://pragtify.com/services/android-app-development",
+      "description": "Native Android apps that feel fast and look great on every screen."
+    },
+    {
+      "category": "mobile",
+      "name": "iOS App Development",
+      "url": "https://pragtify.com/services/ios-app-development",
+      "description": "Premium iOS apps with polished interactions and App Store optimization."
+    },
+    {
+      "category": "mobile",
+      "name": "React Native Apps",
+      "url": "https://pragtify.com/services/react-native",
+      "description": "One codebase. iOS and Android. Full native performance."
+    },
+    {
+      "category": "enterprise",
+      "name": "CRM Development",
+      "url": "https://pragtify.com/services/crm-development",
+      "description": "Custom CRM systems built around how your team actually works."
+    },
+    {
+      "category": "enterprise",
+      "name": "ERP Systems",
+      "url": "https://pragtify.com/services/erp-development",
+      "description": "Enterprise resource planning that connects every part of your business."
+    },
+    {
+      "category": "enterprise",
+      "name": "Enterprise Software",
+      "url": "https://pragtify.com/services/custom-software",
+      "description": "Large-scale software that handles real complexity without breaking."
+    },
+    {
+      "category": "automation",
+      "name": "AI Integrations",
+      "url": "https://pragtify.com/services/ai-integrations",
+      "description": "Embed AI into your existing products. Smarter workflows, not just chatbots."
+    },
+    {
+      "category": "automation",
+      "name": "Workflow Automation",
+      "url": "https://pragtify.com/services/automation",
+      "description": "Automate repetitive tasks so your team focuses on what matters."
+    },
+    {
+      "category": "automation",
+      "name": "Personal LLM Models",
+      "url": "https://pragtify.com/services/personal-llm-development",
+      "description": "Your own AI model trained on your data. Fully private. Fully yours."
+    },
+    {
+      "category": "marketing",
+      "name": "SEO",
+      "url": "https://pragtify.com/services/seo",
+      "description": "Rank higher. Get found. Grow organic traffic that compounds over time."
+    },
+    {
+      "category": "marketing",
+      "name": "Digital Marketing",
+      "url": "https://pragtify.com/services/digital-marketing",
+      "description": "Strategy, content, ads, and analytics. Marketing that pays for itself."
+    },
+    {
+      "category": "design",
+      "name": "Branding",
+      "url": "https://pragtify.com/services/branding",
+      "description": "Logo, identity, design system. A brand your customers remember."
+    },
+    {
+      "category": "design",
+      "name": "UI/UX Design",
+      "url": "https://pragtify.com/services/ui-ux-design",
+      "description": "Interfaces that are intuitive, beautiful, and a pleasure to use."
+    },
+    {
+      "category": "support",
+      "name": "Ongoing Maintenance",
+      "url": "https://pragtify.com/services/maintenance",
+      "description": "We don't disappear after launch. Updates, monitoring, and support, ongoing."
+    }
+  ],
+
+  "ai_ml_and_automation_offerings": {
+    "generative_ai": [
+      "LLM-powered application and feature development (OpenAI, Gemini, configurable LLM providers)",
+      "Prompt engineering and model response evaluation",
+      "Retrieval-Augmented Generation (RAG) and hybrid RAG with embeddings and pgvector",
+      "Semantic search over private business data",
+      "Private, custom LLM solutions trained or grounded on client data"
+    ],
+    "ai_agents": [
+      "Agentic AI systems with persistent memory and tool-calling",
+      "Multi-agent systems built with LangChain and LangGraph",
+      "Permission-aware tool execution for safe agent actions",
+      "Personal and business AI operating agents"
+    ],
+    "machine_learning": [
+      "Predictive modeling and exploratory data analysis (Scikit-learn, TensorFlow, PyTorch, Pandas, NumPy)",
+      "Statistical analysis and outlier handling for healthcare-style prediction tasks",
+      "Speech and multilingual language identification using transformer models (Hugging Face)",
+      "Model evaluation and benchmarking"
+    ],
+    "automation": [
+      "Multi-agent social media content generation and distribution across platforms",
+      "Social media publishing and scheduling via Meta Graph API with OAuth 2.0",
+      "Business workflow automation inside CRM and internal tools",
+      "Validation, retry handling and structured error handling for reliable pipelines",
+      "Third-party API and data source integration"
+    ]
+  },
+
+  "portfolio": [
+    {
+      "name": "MAAYA - Personal AI Operating Agent",
+      "period": "2026 - Present",
+      "type": "AI / Agents",
+      "description": "Agentic AI system with persistent memory, hybrid RAG, semantic search, task management and permission-aware tool execution.",
+      "tech_stack": ["TypeScript", "Node.js", "PostgreSQL", "pgvector", "LangGraph", "Configurable LLM providers", "Tool-calling", "Prompt engineering"]
+    },
+    {
+      "name": "Meta Social Media Automation Platform",
+      "period": "2026",
+      "type": "Automation",
+      "description": "Automated social media publishing and scheduling by integrating Meta Graph APIs with OAuth 2.0 and AI-assisted content generation. Includes validation, retry handling and structured error handling in modular REST backend services.",
+      "tech_stack": ["Meta Graph API", "OAuth 2.0", "REST APIs", "Node.js", "AI content generation"]
+    },
+    {
+      "name": "Multi-Agent Social Media Distribution System",
+      "type": "Automation / AI Agents",
+      "description": "Sub-agents generate posts and text and publish them across multiple social media platforms to create backlinks.",
+      "tech_stack": ["Multi-agent systems", "LLMs", "Social media APIs"]
+    },
+    {
+      "name": "CRM & Immigration Services Platform",
+      "period": "2025",
+      "type": "Enterprise / CRM",
+      "description": "Full-stack CRM with role-based access control, analytics, workflow automation and AI-assisted business workflows. Database performance improved through query analysis and indexing.",
+      "tech_stack": ["Node.js", "Prisma ORM", "PostgreSQL", "MongoDB", "RBAC"]
+    },
+    {
+      "name": "Fintech Application",
+      "type": "Client project",
+      "description": "Real-world fintech application delivered for a client."
+    },
+    {
+      "name": "Restaurant POS System",
+      "type": "Client project",
+      "description": "Point-of-sale system with order management for restaurants."
+    },
+    {
+      "name": "Live Airplane Tracking Application",
+      "type": "Client project",
+      "description": "Flight tracking application powered by real-time data."
+    }
+  ],
+
+  "technical_expertise": {
+    "generative_ai": ["LLMs", "OpenAI API", "Gemini API", "Prompt Engineering", "RAG", "Embeddings", "Vector Databases (pgvector)", "Semantic Search", "LangChain", "LangGraph", "AI Agents", "Multi-Agent Systems", "Hugging Face"],
+    "programming_languages": ["Python", "TypeScript", "JavaScript", "Java", "C++", "SQL"],
+    "backend_and_web": ["Node.js", "Fastify", "Flask", "React.js", "Next.js", "REST APIs", "OAuth 2.0", "Meta Graph API", "Role-Based Access Control (RBAC)"],
+    "machine_learning_and_data": ["Scikit-learn", "TensorFlow", "PyTorch", "Pandas", "NumPy", "Exploratory Data Analysis", "Model Evaluation"],
+    "databases": ["PostgreSQL", "MongoDB", "Prisma ORM", "pgvector"],
+    "cloud_and_devops": ["AWS", "Google Cloud Platform (GCP)", "Hostinger VPS", "Docker", "Git", "GitHub", "Linux", "Shell Scripting"],
+    "systems": ["Linux Kernel", "Android Kernel", "Operating System Internals", "Power and Battery Optimization"],
+    "testing": ["Postman", "Jest", "Pytest", "Structured Testing", "Debugging"],
+    "product_and_marketing": ["Requirement Gathering", "User Stories", "Backlog Prioritization", "Roadmap Planning", "Stakeholder Management", "Technical Documentation", "Agile", "SEO", "GEO", "System Design"]
+  },
+
+  "delivery_approach": [
+    "Requirement gathering and technical documentation",
+    "Clear ownership of scope and timelines",
+    "Coordination across 10+ teams on deliverables",
+    "Deployment and management on AWS, GCP and VPS",
+    "Structured testing and AI-assisted debugging",
+    "Ongoing maintenance, monitoring and support after launch"
+  ],
+
+  "team_credentials": {
+    "lead_engineer_background": {
+      "education": {
+        "institution": "Chandigarh University",
+        "degree": "Bachelor of Engineering, Computer Science Engineering (AI & Machine Learning)",
+        "expected_graduation": "2027",
+        "coursework": ["Operating Systems", "Database Management Systems", "Software Engineering", "Data Structures", "Algorithms", "Artificial Intelligence", "Machine Learning", "Statistics"]
+      },
+      "experience": [
+        {
+          "role": "AI Intern (Product Management)",
+          "organization": "Knotsync",
+          "period": "May 2025 - Jul 2025",
+          "highlights": [
+            "Developed AI-integrated application features using TypeScript, Node.js, PostgreSQL and REST APIs.",
+            "Translated business needs into requirements and user stories, and prioritized the feature backlog with engineers and stakeholders.",
+            "Prototyped and evaluated LLM-based features using prompt engineering and model response evaluation.",
+            "Tested and debugged API, database and application issues using structured testing and AI-assisted debugging.",
+            "Acted as the main spokesperson for the team in internship meetings."
+          ]
+        },
+        {
+          "role": "Freelance Software Developer",
+          "organization": "Solo and team projects",
+          "highlights": [
+            "Delivered fintech, restaurant POS and live airplane tracking client projects.",
+            "Built a multi-agent social media distribution system.",
+            "Gathered business requirements, prepared technical documentation, owned scope and timelines, and coordinated 10+ teams.",
+            "Deployed and managed applications on AWS, GCP and Hostinger VPS."
+          ]
+        },
+        {
+          "role": "Tech Lead",
+          "organization": "Techtatva (Chandigarh University Club)",
+          "highlights": [
+            "Led the technical team, built several applications for the club and solved a wide range of technical problems."
+          ]
+        }
+      ]
+    }
+  },
+
+  "research_and_publications": [
+    {
+      "title": "Multilingual Speech Language Identification",
+      "venue": "Samsung PRISM Research Worklet (Team Member)",
+      "status": "Completed",
+      "summary": "Analyzed 10,000+ multilingual audio samples with preprocessing and exploratory data analysis. Evaluated transformer-based models using Hugging Face, embeddings and prompting strategies."
+    },
+    {
+      "title": "Empirical Performance Evaluation of Password, OTP, QR, and Hybrid QR + OTP Authentication Under Concurrent Load",
+      "venue": "IEEE-format paper",
+      "year": 2026,
+      "summary": "Benchmarked four authentication methods on a Node.js, Fastify, Prisma and PostgreSQL backend using 3,973 traces and 35,058 stage-level measurements at 1, 10 and 25 virtual users. Test environment released as open source under the MIT licence."
+    },
+    {
+      "title": "A Statistical Analysis of Outliers in Diabetes Prediction",
+      "venue": "2025 IEEE 4th International Conference for Advancement in Technology (ICONAT)",
+      "year": 2025,
+      "summary": "Statistical analysis of outliers in diabetes prediction, with a machine learning model that detects early signs of diabetes, including the pre-diabetic state."
+    }
+  ],
+
+  "open_source_and_kernel_development": [
+    "Linux Kernel contributor, with patches reaching 1,000+ users.",
+    "Compiled and customized kernels for the Realme GT Neo 3T and for Linux, optimizing battery life and power consumption on both. Used by many users.",
+    "Open source contributor across 150+ GitHub repositories (github.com/HarshKuro)."
+  ],
+
+  "achievements": [
+    "Winner, BFCET 2.0 Hackathon",
+    "Participant, 5th International Conference on Smart Technology and Sustainable Transformation (ICSTST 2026)",
+    "Attended Google DevFest 2025, Gurugram",
+    "Team member, Samsung PRISM Research Worklet",
+    "KPIT Sparkle Semifinalist",
+    "Delivered lectures on system design, SEO and GEO",
+    "Tech Lead, Techtatva, Chandigarh University"
+  ],
+
+  "certifications": {
+    "product_and_design": [
+      "Product Management: An Introduction (IBM)",
+      "Strategic Product Development (University of Colorado Boulder)",
+      "Foundations of User Experience (UX) Design (Google)",
+      "Introduction to Engineering Design (Starweaver)",
+      "Digital Manufacturing & Design (University at Buffalo, SUNY)"
+    ],
+    "ai_ml_and_data": [
+      "Introduction to Generative AI (Google Cloud)",
+      "Introduction to Machine Learning (Duke University)",
+      "The Structured Query Language (SQL) (University of Colorado Boulder)"
+    ],
+    "systems_and_networks": [
+      "Hands-on Introduction to Linux Commands and Shell Scripting (IBM)",
+      "5G Network Fundamentals (Institut Mines-Telecom)"
+    ],
+    "research_and_ip": [
+      "How to Write and Publish a Scientific Paper (Ecole Polytechnique)",
+      "Research Methodologies (Queen Mary University of London)",
+      "Patent Law (University of Pennsylvania)"
+    ],
+    "in_progress": [
+      "Prompt Engineering Specialization",
+      "Search Engine Optimization (SEO) Specialization (UC Davis)"
+    ]
+  }
+}
