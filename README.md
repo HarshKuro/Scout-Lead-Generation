@@ -3,6 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Discord](https://img.shields.io/discord/1467620600267931713?color=7289da&label=Discord&logo=discord&logoColor=white)](https://discord.gg/eneDNUbzcc)
+[![Agent Ready](https://img.shields.io/badge/Agent%20Ready-AGENT.md-blueviolet?style=flat&logo=openai)](AGENT.md)
 [![Maintainer](https://img.shields.io/badge/Unofficial%20Maintainer-Harsh%20(@HarshKuro)-black?style=flat&logo=github)](https://github.com/HarshKuro)
 
 > Autonomous, high-scale lead generation engine for appointment setters, sales developers, and agency owners. Discovers decision makers across 8+ platforms, sniffs client tech stacks, verifies emails & phone numbers, and dynamically generates custom cold pitches powered by an Agency Memory Knowledge Base.
@@ -17,6 +18,22 @@
 * **Multi-Channel Contact Intelligence**: Direct extraction of phone numbers, verified emails via SMTP handshake, LinkedIn profiles, and Instagram handles.
 * **One-Click WhatsApp Dispatch**: Click-to-chat `wa.me` links pre-filled with tailored pitches for semi-automated sales follow-ups.
 * **Interactive AI Leads Dashboard (`leads_dashboard.html`)**: Dynamic, ultra-clean black-and-white minimalist matrix interface with dotted accents, vertical capsule filters, drag-and-drop CSV ingestion, and 1-click clipboard copy.
+* **Autonomous Agent Directives (`AGENT.md`)**: Full operating manual allowing AI agents (Antigravity, Claude Code, Codex, Cursor, Devin) to autonomously configure agency memory, discover leads, verify contacts, and launch campaigns.
+
+---
+
+## 🤖 Autonomous AI Agent Operating Manual (`AGENT.md`)
+
+Scout is built to be **agent-native**. When you clone or open this repository with an AI coding assistant (**Google Antigravity, Claude Code, OpenAI Codex, Cursor, Devin**):
+
+👉 **Direct your AI agent to read [AGENT.md](AGENT.md)**.
+
+The agent will autonomously:
+1. **Configure Agency Memory**: Populate `app/memory/agency_profile.json` with your agency or personal business details (name, services, tech stack, portfolio, and contact info).
+2. **Execute Targeted Discovery**: Run `python find_leads.py --target 100` targeting India, Pakistan, or International decision makers.
+3. **Sniff Web Stacks & Opportunities**: Detect missing chat widgets, slow server speeds, or legacy stacks to create high-converting hooks.
+4. **Resolve Direct Contacts**: Extract phone numbers, WhatsApp links, and verify business emails via direct SMTP handshake.
+5. **Compile & Open the Dashboard**: Build and link the [Minimalist AI Leads Matrix](leads_dashboard.html) with 1-click copy and WhatsApp dispatch.
 
 ---
 
